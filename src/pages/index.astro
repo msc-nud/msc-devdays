@@ -1,0 +1,65 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AttendeeCard from '../components/AttendeeCard.astro';
+import SearchBar from '../components/SearchBar.astro';
+
+const cards = (await getCollection('cards'))
+  .filter((card) => card.id !== 'example-card')
+  .sort((a, b) => a.data.name.localeCompare(b.data.name));
+---
+
+<BaseLayout title="Attendees · GitHub Copilot Dev Days">
+  <section class="hero">
+    <div class="container">
+      <h1>Meet the attendees</h1>
+      <p>Everyone joining GitHub Copilot Dev Days at Microsoft Student Community NU Dasmariñas.</p>
+      <SearchBar />
+    </div>
+  </section>
+  <section class="container grid-wrap">
+    <ul class="grid">
+      {cards.map((card) => <AttendeeCard {...card.data} />)}
+    </ul>
+    <p id="empty" class="empty" hidden>No attendees match your search.</p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    background: var(--canvas-subtle);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 0 32px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .hero p {
+    margin: 0 0 24px;
+    font-size: 18px;
+    color: var(--fg-muted);
+  }
+  .grid-wrap {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .grid :global(.card[hidden]) {
+    display: none;
+  }
+  .empty {
+    text-align: center;
+    color: var(--fg-muted);
+    padding: 48px 0;
+  }
+</style>

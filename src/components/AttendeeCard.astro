@@ -1,0 +1,75 @@
+---
+import Avatar from './Avatar.astro';
+
+interface Props {
+  name: string;
+  program: string;
+  bio: string;
+  github?: string;
+}
+const { name, program, bio, github } = Astro.props;
+---
+
+<li class="card" data-name={name.toLowerCase()} data-program={program.toLowerCase()}>
+  <div class="top">
+    <Avatar name={name} github={github} />
+    <div class="who">
+      <h2>{name}</h2>
+      {
+        github && (
+          <a href={`https://github.com/${github}`} rel="noopener">
+            @{github}
+          </a>
+        )
+      }
+    </div>
+  </div>
+  <span class="label">{program}</span>
+  <p>{bio}</p>
+</li>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .card:hover {
+    box-shadow: var(--shadow-hover);
+    border-color: var(--accent);
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .who a {
+    font-size: 14px;
+  }
+  .label {
+    align-self: flex-start;
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 2em;
+  }
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fg-muted);
+  }
+</style>

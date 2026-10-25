@@ -1,0 +1,65 @@
+<div class="search">
+  <label for="search" class="sr-only">Search attendees</label>
+  <input id="search" type="search" placeholder="Search by name or program…" autocomplete="off" />
+  <p id="result-count" aria-live="polite"></p>
+</div>
+
+<script>
+  const input = document.getElementById('search') as HTMLInputElement;
+  const count = document.getElementById('result-count')!;
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.card'));
+  const empty = document.getElementById('empty')!;
+
+  function update() {
+    const q = input.value.trim().toLowerCase();
+    let visible = 0;
+    for (const card of cards) {
+      const match =
+        !q || (card.dataset.name ?? '').includes(q) || (card.dataset.program ?? '').includes(q);
+      card.hidden = !match;
+      if (match) visible++;
+    }
+    empty.hidden = visible !== 0;
+    count.textContent = `${visible} of ${cards.length} attendees`;
+  }
+
+  input.addEventListener('input', update);
+  update();
+</script>
+
+<style>
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  input {
+    flex: 1 1 320px;
+    max-width: 480px;
+    padding: 5px 12px;
+    min-height: 40px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--fg);
+    background: var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fg-muted);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+</style>
