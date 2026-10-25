@@ -1,6 +1,6 @@
 ---
 name: Mona Octocat
-program: BS Computer Science
-bio: Frontend enthusiast who enjoys design systems and accessibility.
+program: GitHub
+bio: GitHub's resident Octocat, half cat and half octopus, who cheers on developers everywhere and never misses a pull request.
 github: octocat
 ---
