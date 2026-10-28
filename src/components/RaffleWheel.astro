@@ -198,10 +198,10 @@ const names = attendees.map(({ id, name }) => ({ id, name }));
 
     isSpinning = true;
     updateState();
-    const selectedIndex = randomInt(remaining.length);
-    const fraction = 0.15 + randomInt(1_000_000) / 1_000_000 * 0.7;
-    const step = (Math.PI * 2) / remaining.length;
-    const targetAngle = modulo(-(selectedIndex + fraction) * step, Math.PI * 2);
+    const slotsPerName = Math.floor(0x1_0000_0000 / remaining.length);
+    const totalSlots = slotsPerName * remaining.length;
+    const position = (randomInt(totalSlots) + 0.5) / totalSlots;
+    const targetAngle = modulo(-position * Math.PI * 2, Math.PI * 2);
     const startAngle = rotation;
     const startModulo = modulo(startAngle, Math.PI * 2);
     const endAngle = startAngle + modulo(targetAngle - startModulo, Math.PI * 2) + Math.PI * 2 * (4 + randomInt(3));
