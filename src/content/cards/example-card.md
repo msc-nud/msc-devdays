@@ -6,7 +6,7 @@
 #
 # Required: name, program, bio
 # Optional: github  (your GitHub username, without the "@")
-name: Mona Lisa Octocat
+name: Beans
 program: BS Computer Science
 bio: Curious about open source and building cool things with Copilot.
 github: octocat
