@@ -1,0 +1,41 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import RaffleWheel from '../components/RaffleWheel.astro';
+
+const attendees = (await getCollection('cards'))
+  .filter((card) => card.id !== 'example-card')
+  .sort((a, b) => a.data.name.localeCompare(b.data.name))
+  .map(({ id, data }) => ({ id, ...data }));
+---
+
+<BaseLayout title="Raffle · GitHub Copilot Dev Days">
+  <section class="hero">
+    <div class="container">
+      <h1>Raffle wheel</h1>
+      <p>Spin to pick an attendee. Keep them in the draw or remove their card from this wheel.</p>
+    </div>
+  </section>
+  <section class="container">
+    <RaffleWheel attendees={attendees} />
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    background: var(--canvas-subtle);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 0 28px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .hero p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 17px;
+  }
+</style>

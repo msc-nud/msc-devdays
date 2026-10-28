@@ -6,11 +6,12 @@ interface Props {
   program: string;
   bio: string;
   github?: string;
+  cardId?: string;
 }
-const { name, program, bio, github } = Astro.props;
+const { name, program, bio, github, cardId } = Astro.props;
 ---
 
-<li class="card" data-name={name.toLowerCase()} data-program={program.toLowerCase()}>
+<li class="card" data-card-id={cardId} data-name={name.toLowerCase()} data-program={program.toLowerCase()}>
   <div class="top">
     <Avatar name={name} github={github} />
     <div class="who">
