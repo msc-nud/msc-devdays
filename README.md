@@ -2,6 +2,8 @@
 
 Website for GitHub Copilot Dev Days at Microsoft Student Community NU Dasmariñas showing every attendee's card, built with [Astro](https://astro.build), Mona Sans, and GitHub-style design.
 
+The [raffle wheel](/msc-devdays/raffle) uses these attendee cards to pick a winner; removing a winner only changes the wheel for the current page session.
+
 ## Add your card
 
 Fork the repo, add `src/content/cards/<your-github-username>.md` (copy `example-card.md`), and open a pull request. `github` is optional; `name`, `program`, and `bio` are required. See [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -1,0 +1,397 @@
+---
+import AttendeeCard from './AttendeeCard.astro';
+
+interface Attendee {
+  id: string;
+  name: string;
+  program: string;
+  bio: string;
+  github?: string;
+}
+
+interface Props {
+  attendees: Attendee[];
+}
+
+const { attendees } = Astro.props;
+const names = attendees.map(({ id, name }) => ({ id, name }));
+---
+
+<section class="raffle" data-attendees={JSON.stringify(names)}>
+  <div class="wheel-wrap">
+    <span class="pointer" aria-hidden="true"></span>
+    <canvas id="raffle-wheel" role="img" aria-label="Raffle wheel"></canvas>
+  </div>
+  <p id="remaining-count" class="remaining" aria-live="polite"></p>
+  <p id="wheel-status" class="sr-only" aria-live="polite"></p>
+  <ul id="accessible-names" class="sr-only"></ul>
+  <div class="actions">
+    <button id="spin" class="primary-button" type="button">Spin the wheel</button>
+    <button id="reset" class="secondary-button" type="button" hidden>Reset wheel</button>
+  </div>
+  <p class="hint">Every attendee has an equal chance of being selected.</p>
+
+  <ul id="card-source" class="card-source" hidden aria-hidden="true">
+    {attendees.map((attendee) => <AttendeeCard {...attendee} cardId={attendee.id} />)}
+  </ul>
+
+  <dialog id="winner-dialog" aria-labelledby="winner-title">
+    <div class="dialog-content">
+      <p class="eyebrow">The wheel picked</p>
+      <h2 id="winner-title"></h2>
+      <ul id="winner-card" class="winner-card"></ul>
+      <div class="dialog-actions">
+        <button id="keep-winner" class="secondary-button" type="button">Keep on the wheel</button>
+        <button id="remove-winner" class="primary-button" type="button">Remove from wheel</button>
+      </div>
+    </div>
+  </dialog>
+</section>
+
+<script>
+  interface AttendeeName {
+    id: string;
+    name: string;
+  }
+
+  const section = document.querySelector<HTMLElement>('.raffle')!;
+  const canvas = document.querySelector<HTMLCanvasElement>('#raffle-wheel')!;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('The raffle wheel requires a 2D canvas context.');
+
+  const count = document.querySelector<HTMLElement>('#remaining-count')!;
+  const status = document.querySelector<HTMLElement>('#wheel-status')!;
+  const accessibleNames = document.querySelector<HTMLUListElement>('#accessible-names')!;
+  const spinButton = document.querySelector<HTMLButtonElement>('#spin')!;
+  const resetButton = document.querySelector<HTMLButtonElement>('#reset')!;
+  const dialog = document.querySelector<HTMLDialogElement>('#winner-dialog')!;
+  const winnerTitle = document.querySelector<HTMLElement>('#winner-title')!;
+  const winnerCard = document.querySelector<HTMLUListElement>('#winner-card')!;
+  const cardSource = document.querySelector<HTMLUListElement>('#card-source')!;
+  const keepButton = document.querySelector<HTMLButtonElement>('#keep-winner')!;
+  const removeButton = document.querySelector<HTMLButtonElement>('#remove-winner')!;
+
+  const attendees = JSON.parse(section.dataset.attendees ?? '[]') as AttendeeName[];
+  let remaining = [...attendees];
+  let rotation = 0;
+  let isSpinning = false;
+  let selectedId: string | null = null;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function randomInt(max: number): number {
+    const range = 0x1_0000_0000;
+    const limit = Math.floor(range / max) * max;
+    const value = new Uint32Array(1);
+    do {
+      crypto.getRandomValues(value);
+    } while (value[0] >= limit);
+    return value[0] % max;
+  }
+
+  function modulo(value: number, divisor: number): number {
+    return ((value % divisor) + divisor) % divisor;
+  }
+
+  function updateState(): void {
+    count.textContent = `${remaining.length} ${remaining.length === 1 ? 'name' : 'names'} remaining`;
+    spinButton.disabled = isSpinning || remaining.length === 0;
+    resetButton.hidden = remaining.length !== 0 || attendees.length === 0;
+    canvas.setAttribute(
+      'aria-label',
+      `Raffle wheel with ${remaining.length} ${remaining.length === 1 ? 'name' : 'names'} remaining`,
+    );
+    accessibleNames.replaceChildren(
+      ...remaining.map((attendee) => {
+        const item = document.createElement('li');
+        item.textContent = attendee.name;
+        return item;
+      }),
+    );
+    drawWheel();
+  }
+
+  function drawWheel(): void {
+    const size = canvas.getBoundingClientRect().width;
+    if (!size) return;
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(size * pixelRatio);
+    canvas.height = Math.round(size * pixelRatio);
+    context!.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context!.clearRect(0, 0, size, size);
+
+    if (remaining.length === 0) {
+      context!.beginPath();
+      context!.arc(size / 2, size / 2, size * 0.48, 0, Math.PI * 2);
+      context!.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-subtle').trim();
+      context!.fill();
+      context!.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+      context!.lineWidth = 2;
+      context!.stroke();
+    } else {
+      const step = (Math.PI * 2) / remaining.length;
+      const radius = size * 0.48;
+      const startAngle = -Math.PI / 2;
+      const style = getComputedStyle(document.documentElement);
+      const border = style.getPropertyValue('--canvas').trim();
+
+      remaining.forEach((attendee, index) => {
+        const start = startAngle + index * step;
+        const end = start + step;
+        const middle = start + step / 2;
+        context!.beginPath();
+        context!.moveTo(size / 2, size / 2);
+        context!.arc(size / 2, size / 2, radius, start, end);
+        context!.closePath();
+        context!.fillStyle = `hsl(${(index * 360) / remaining.length} 72% 68%)`;
+        context!.fill();
+        context!.strokeStyle = border;
+        context!.lineWidth = Math.max(1, size / 300);
+        context!.stroke();
+
+        context!.save();
+        context!.translate(size / 2, size / 2);
+        const labelRadius = radius * 0.7;
+        const labelAngle = middle + Math.PI / 2;
+        context!.translate(labelRadius * Math.cos(middle), labelRadius * Math.sin(middle));
+        context!.rotate(Math.cos(labelAngle) < 0 ? labelAngle + Math.PI : labelAngle);
+        context!.textAlign = 'center';
+        context!.textBaseline = 'middle';
+        context!.fillStyle = '#1f2328';
+        context!.font = `600 ${Math.min(14, Math.max(8, size * step * 0.18))}px sans-serif`;
+        const words = attendee.name.trim().split(/\s+/);
+        const label = words.length > 2 ? `${words[0]} ${words[words.length - 1]}` : attendee.name;
+        const labelWidth = Math.max(16, 2 * labelRadius * Math.sin(step / 2) * 0.8);
+        context!.fillText(label, 0, 0, labelWidth);
+        context!.restore();
+      });
+
+      context!.beginPath();
+      context!.arc(size / 2, size / 2, size * 0.075, 0, Math.PI * 2);
+      context!.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim();
+      context!.fill();
+      context!.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+      context!.lineWidth = 2;
+      context!.stroke();
+    }
+
+    canvas.style.transform = `rotate(${rotation}rad)`;
+  }
+
+  function winnerIndex(angle: number): number {
+    const step = (Math.PI * 2) / remaining.length;
+    return Math.floor(modulo(-angle, Math.PI * 2) / step);
+  }
+
+  function showWinner(attendee: AttendeeName): void {
+    selectedId = attendee.id;
+    winnerTitle.textContent = attendee.name;
+    const sourceCard = cardSource.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(attendee.id)}"]`);
+    if (!sourceCard) throw new Error(`Could not find attendee card for ${attendee.id}.`);
+    winnerCard.replaceChildren(sourceCard.cloneNode(true));
+    status.textContent = `${attendee.name} is the raffle winner.`;
+    dialog.showModal();
+  }
+
+  function spin(): void {
+    if (isSpinning || remaining.length === 0) return;
+
+    isSpinning = true;
+    updateState();
+    const selectedIndex = randomInt(remaining.length);
+    const fraction = 0.15 + randomInt(1_000_000) / 1_000_000 * 0.7;
+    const step = (Math.PI * 2) / remaining.length;
+    const targetAngle = modulo(-(selectedIndex + fraction) * step, Math.PI * 2);
+    const startAngle = rotation;
+    const startModulo = modulo(startAngle, Math.PI * 2);
+    const endAngle = startAngle + modulo(targetAngle - startModulo, Math.PI * 2) + Math.PI * 2 * (4 + randomInt(3));
+    const duration = remaining.length === 1 || reduceMotion.matches ? 0 : 4200;
+    const startTime = performance.now();
+
+    const finish = () => {
+      rotation = endAngle;
+      isSpinning = false;
+      const winner = remaining[winnerIndex(rotation)];
+      updateState();
+      showWinner(winner);
+    };
+
+    if (duration === 0) {
+      finish();
+      return;
+    }
+
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      rotation = startAngle + (endAngle - startAngle) * eased;
+      canvas.style.transform = `rotate(${rotation}rad)`;
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        finish();
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }
+
+  spinButton.addEventListener('click', spin);
+  keepButton.addEventListener('click', () => dialog.close());
+  removeButton.addEventListener('click', () => {
+    if (selectedId) remaining = remaining.filter(({ id }) => id !== selectedId);
+    dialog.close();
+    updateState();
+    status.textContent = `${winnerTitle.textContent} was removed from the wheel.`;
+  });
+  dialog.addEventListener('close', () => {
+    selectedId = null;
+    winnerCard.replaceChildren();
+  });
+  resetButton.addEventListener('click', () => {
+    remaining = [...attendees];
+    rotation = 0;
+    status.textContent = 'The raffle wheel has been reset.';
+    updateState();
+  });
+  new ResizeObserver(drawWheel).observe(canvas);
+  new MutationObserver(drawWheel).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  });
+  reduceMotion.addEventListener('change', () => {
+    if (reduceMotion.matches) status.textContent = 'Reduced motion is enabled; spins will skip the animation.';
+  });
+
+  updateState();
+</script>
+
+<style>
+  .raffle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 24px 48px;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: min(100%, 560px);
+    aspect-ratio: 1;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: transform 0s;
+  }
+  .pointer {
+    position: absolute;
+    z-index: 1;
+    top: -4px;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-right: 17px solid transparent;
+    border-left: 17px solid transparent;
+    border-top: 30px solid var(--fg);
+    transform: translateX(-50%);
+  }
+  .remaining {
+    margin: 20px 0 12px;
+    color: var(--fg-muted);
+    font-weight: 600;
+  }
+  .actions,
+  .dialog-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  button {
+    min-height: 42px;
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .primary-button {
+    color: #fff;
+    background: var(--accent);
+  }
+  .secondary-button {
+    color: var(--fg);
+    background: var(--canvas);
+    border-color: var(--border);
+  }
+  .hint {
+    margin: 16px 0 0;
+    color: var(--fg-muted);
+    font-size: 14px;
+    text-align: center;
+  }
+  dialog {
+    width: min(480px, calc(100% - 32px));
+    max-height: min(90vh, 720px);
+    overflow: auto;
+    padding: 0;
+    color: var(--fg);
+    background: var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 24%);
+  }
+  dialog::backdrop {
+    background: rgb(1 4 9 / 60%);
+  }
+  .dialog-content {
+    padding: 24px;
+  }
+  .eyebrow {
+    margin: 0 0 4px;
+    color: var(--fg-muted);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  h2 {
+    margin: 0 0 16px;
+    font-size: 28px;
+    line-height: 1.2;
+  }
+  .winner-card {
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+  @media (max-width: 480px) {
+    .raffle {
+      padding-right: 16px;
+      padding-left: 16px;
+    }
+    .dialog-content {
+      padding: 20px;
+    }
+  }
+</style>
